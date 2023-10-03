@@ -1,49 +1,88 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Sep 16 22:02:41 2020
-
-@author: jkora
-https://www.pro-football-reference.com/players/J/JoneJu02/gamelog/2019
-
-@author: https://stmorse.github.io/journal/pfr-scrape-python.html
-"""
 
 import pandas as pd
 from bs4 import BeautifulSoup
 import requests
 import lxml
+from selenium import webdriver
+from time import sleep
 
-url = 'https://www.pro-football-reference.com'
+url = 'http://www.pro-football-reference.com'
 
-years_to_scrape = [i for i in range(2020,2023)]
+years_to_scrape = [i for i in range(2022,2023)]
 
-for year in years_to_scrape:
-    maxp = 2000
+def parse(url):
+    response = webdriver.Chrome()
+    response.get(url)
+    sleep(4)
+    sourceCode=response.page_source
+    return  sourceCode
+
+def get_players_table(year):
     
     # grab fantasy players
     r = requests.get(url + '/years/' + str(year) + '/fantasy.htm')
-    soup = BeautifulSoup(r.content, 'html.parser')
-    parsed_table = soup.find_all('table')[0]  
-        
+    soup = BeautifulSoup(r.content, 'lxml')
+    #soup = BeautifulSoup(parse(url + '/years/{}/fantasy.htm'.format(year)), 'lxml')
+    parsed_table = soup.find('table', id = 'fantasy')     
+    table = parsed_table.find('tbody')
+    sleep(4)
+    
+    return table
+
+for year in years_to_scrape:
+    maxp = 750
+    
+    #table = get_players_table(year)
+    
+    # grab fantasy players
+    r = requests.get(url + '/years/' + str(year) + '/fantasy.htm')
+    soup = BeautifulSoup(r.content, 'lxml')
+    #soup = BeautifulSoup(parse(url + '/years/{}/fantasy.htm'.format(year)), 'lxml')
+    parsed_table = soup.find('table', id = 'fantasy')      
+    table = parsed_table.find('tbody')
+    sleep(4)
+    
     df = []
     
     # first row is col headers
-    for i,row in enumerate(parsed_table.find_all('tr')[2:]):
-        if i % 10 == 0: print(i, end=' ')
+    n = 0
+    for i,row in enumerate(table.find_all('tr')):
         if i >= maxp: 
             print('\nComplete.')
             break
-            
-        try:
+        elif i % 10 == 0: 
+            print(i, end=' ')
+        else:
+            pass
+        
+        if i == 29+31*n:
+            n+=1
+            pass
+        else:
             dat = row.find('td', attrs={'data-stat': 'player'})
+            playerid = dat.get('data-append-csv')
             name = dat.a.get_text()
             stub = dat.a.get('href')
-            stub = stub[:-4] + '/gamelog/' + str(year)
+            stub = stub[:-4] + '/gamelog/{}'.format(year)
             pos = row.find('td', attrs={'data-stat': 'fantasy_pos'}).get_text()
+            sleep(4)
             
+            print(
+                  #url+stub, '\n',
+                  name, '\n',
+                  #playerid, '\n',
+                  #pos, '\n',
+                  )
+            
+            player_r = requests.get(url + stub)
+            playersoup = BeautifulSoup(player_r.content, 'lxml')
+            #playersoup = BeautifulSoup(parse(url + stub), 'lxml')
+            #print(playersoup)
+            #player_table = playersoup.find('table', id = 'stats')#.find('tbody')
             # grab this players stats
-            tdf = pd.read_html(url + stub)[0]
-                    
+            tdf = pd.read_html(str(playersoup), attrs = {'id' : 'stats'})[0]
+            
             colnames = []
             ind = 0
             # make new column names
@@ -82,8 +121,8 @@ for year in years_to_scrape:
             tdf['Player ID'] = stub[11:-13]
             
             df.append(tdf)
-        except:
-            pass
+            #print(df)
+        
 
     df = pd.concat(df, axis = 0, ignore_index = True)
     df = df.fillna(0)
