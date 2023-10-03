@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Sat Sep 19 13:30:06 2020
-
-@author: jkora
-"""
 import plotly.express as px
 from plotly.offline import plot
 import plotly.graph_objs as go
@@ -22,8 +17,8 @@ year1 = 2017
 year2 = year1+1
 
 #upload files
-df2018 = pd.read_csv('player'+str(year1)+'.csv')
-df2019 = pd.read_csv('player'+str(year2)+'.csv')
+dfyear1 = pd.read_csv('player'+str(year1)+'.csv')
+dfyear2 = pd.read_csv('player'+str(year2)+'.csv')
 
 # define fantasy scoring
 def add_fantasy_points(df, scoring = 'PPR'):
@@ -55,31 +50,31 @@ def intersection(list1, list2):
     return intersection_as_list
 
 #add column for fantasy points, make dictionary to relay positions, list all IDs
-df2019['Fantasy Points'] = add_fantasy_points(df2019)
+dfyear2['Fantasy Points'] = add_fantasy_points(dfyear2)
 
 
-posdict2019 = {df2019['Player ID'].iloc[i]: df2019['Position'].iloc[i]
-            for i in range(len(df2019))}
-namedict2019 = {df2019['Player ID'].iloc[i]: df2019['Name'].iloc[i]
-            for i in range(len(df2019))}
+posdictyear2 = {dfyear2['Player ID'].iloc[i]: dfyear2['Position'].iloc[i]
+            for i in range(len(dfyear2))}
+namedictyear2 = {dfyear2['Player ID'].iloc[i]: dfyear2['Name'].iloc[i]
+            for i in range(len(dfyear2))}
 
 
-df2018['Fantasy Points'] = add_fantasy_points(df2018)
-posdict2018 = {df2018['Player ID'].iloc[i]: df2018['Position'].iloc[i]
-            for i in range(len(df2018))}
-namedict2018 = {df2018['Player ID'].iloc[i]: df2018['Name'].iloc[i]
-            for i in range(len(df2018))}
+dfyear1['Fantasy Points'] = add_fantasy_points(dfyear1)
+posdictyear1 = {dfyear1['Player ID'].iloc[i]: dfyear1['Position'].iloc[i]
+            for i in range(len(dfyear1))}
+namedictyear1 = {dfyear1['Player ID'].iloc[i]: dfyear1['Name'].iloc[i]
+            for i in range(len(dfyear1))}
 
-dictname = namedict2019
-dictname.update(namedict2018)
+dictname = namedictyear2
+dictname.update(namedictyear1)
 
-dictpos = posdict2019
-dictpos.update(posdict2018)
+dictpos = posdictyear2
+dictpos.update(posdictyear1)
 
-fantasy_season2019 = df2019.groupby('Player ID')['Fantasy Points'].sum()
-fantasy_season2018 = df2018.groupby('Player ID')['Fantasy Points'].sum()
+fantasy_seasonyear2 = dfyear2.groupby('Player ID')['Fantasy Points'].sum()
+fantasy_seasonyear1 = dfyear1.groupby('Player ID')['Fantasy Points'].sum()
 
-between = pd.DataFrame([fantasy_season2019,fantasy_season2018], index = ['2019', '2018']).T
+between = pd.DataFrame([fantasy_seasonyear2,fantasy_seasonyear1], index = ['{}'.format(year2), '{}'.format(year1)]).T
 
 positions = ['WR', 'RB', 'TE', 'QB', 'None']
 poslist = []
@@ -96,23 +91,26 @@ for pos in between.index:
 between['Position'] = poslist                   
 between['Name'] = namelist
 
-fig = px.scatter(between, '2018', '2019', hover_name = 'Name',
+fig = px.scatter(between, '{}'.format(year1), '{}'.format(year2), hover_name = 'Name',
                  color = 'Position', color_discrete_sequence=('red', 'green', 'black', 'blue', 'silver'))
 
-#top40TE = between[between['Position'] == 'WR'].nlargest(40, '2019')
+plot(fig)
+#top40TE = between[between['Position'] == 'WR'].nlargest(40, 'year2')
 
-#fig = px.scatter(top40TE, '2018', '2019', hover_name = 'Name',
+#fig = px.scatter(top40TE, '{}'.format(year1), ''.format(year2), hover_name = 'Name',
 #                 color = 'Position', color_discrete_sequence=('red', 'green', 'black', 'orange', 'silver'))
 
 #print(between)
 
+between.to_csv('Total_fantasy.csv')
+
 yeardif = {}
 for name in list(between.index):
     try:
-        score1 = fantasy_season2018[name]
-        score2 = fantasy_season2019[name]
-        if score1 is not 'NaN':
-            if score2 is not 'NaN':
+        score1 = fantasy_seasonyear1[name]
+        score2 = fantasy_seasonyear2[name]
+        if score1 != 'NaN':
+            if score2 != 'NaN':
                 ave = (score1+score2)/2
             else:
                 ave = 0
@@ -121,14 +119,14 @@ for name in list(between.index):
         yeardif[name] = [(score2-score1), score1, score2, ave]
     except:
         pass
-#print(yeardif)
+print(len(yeardif))
 
 scoredf = pd.DataFrame(yeardif, index  = ['Dif', 'Year1', 'Year2', 'Average']).T
 posdf = pd.DataFrame.from_dict(dictpos, orient='index', columns = ['Position'])
 namedf = pd.DataFrame.from_dict(dictname, orient='index', columns = ['Name'])
 difdf = pd.concat([scoredf,posdf,namedf], axis = 1)
 
-#print(fantasy_season2019[between['Name'].index[0]])
+#print(fantasy_seasonyear2[between['Name'].index[0]])
 
 fig = px.scatter(difdf, 'Dif', 'Average', hover_name = 'Name',
                  color = 'Position',
